@@ -1,0 +1,24 @@
+{
+  "name": "microfinance",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "overrides": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "scripts": {
+    "predev": "npm run prisma:generate --workspace microfinance-backend",
+    "dev": "node scripts/dev.js",
+    "dev:backend": "npm run dev --workspace microfinance-backend",
+    "dev:frontend": "npm run dev --workspace microfinance-frontend",
+    "db:push": "npm run prisma:push --workspace microfinance-backend",
+    "db:seed": "npm run seed --workspace microfinance-backend"
+  },
+  "devDependencies": {
+    "prisma": "5.22.0"
+  }
+}

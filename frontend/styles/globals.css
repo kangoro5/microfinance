@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+/* Brand color tokens. */
+:root {
+  --color-brand-50: #f0f9f4;
+  --color-brand-600: #146c43;
+  --color-brand-700: #0f5132;
+}
+
+body {
+  background-color: #f9fafb;
+  color: #111827;
+}

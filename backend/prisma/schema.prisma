@@ -1,0 +1,178 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  MEMBER
+}
+
+enum AccountType {
+  SAVINGS
+  LOAN
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+enum Frequency {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum PaymentMethod {
+  MANUAL
+  CASH
+  MOBILE_MONEY
+  MPESA
+  BANK_TRANSFER
+  CARD
+  CHEQUE
+}
+
+enum TransactionType {
+  PAYMENT
+  INTEREST_CREDIT
+  INTEREST_CHARGE
+  OPENING_BALANCE
+  ADJUSTMENT
+}
+
+// A single login identity. SuperAdmin/Admin log in with email; Member logs in with phone.
+model User {
+  id            String   @id @default(uuid()) @map("_id")
+  role          Role
+  passwordHash  String
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // SuperAdmin/Admin identity
+  email         String?  @unique
+  name          String?
+
+  // Links to profile records
+  adminProfile  Admin?
+  memberProfile Member?
+
+  auditLogs     AuditLog[] @relation("ActorLogs")
+}
+
+model Admin {
+  id        String   @id @default(uuid()) @map("_id")
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  fullName  String
+  phone     String?
+  createdAt DateTime @default(now())
+
+  members   Member[]
+}
+
+model Member {
+  id           String   @id @default(uuid()) @map("_id")
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id])
+  adminId      String
+  admin        Admin    @relation(fields: [adminId], references: [id])
+
+  fullName     String
+  phone        String   @unique
+  nationalId   String   @unique
+  address      String?
+  nextOfKin    String?
+  photoUrl     String?
+  createdAt    DateTime @default(now())
+
+  accounts     Account[]
+}
+
+// Independent accounts. Each belongs to exactly one member. No cross-account links.
+model Account {
+  id              String        @id @default(uuid()) @map("_id")
+  accountNumber   String        @unique
+  memberId        String
+  member          Member        @relation(fields: [memberId], references: [id])
+
+  type            AccountType
+  status          AccountStatus @default(ACTIVE)
+  openingBalance  Float         @default(0)
+  balance         Float         @default(0)
+  interestRate    Float // percent per period
+  frequency       Frequency
+  startDate       DateTime      @default(now())
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  transactions      Transaction[]
+  frequencyChanges  FrequencyChangeLog[]
+  notifications     Notification[]
+
+  @@index([memberId])
+}
+
+// Immutable ledger. Never updated or deleted after creation.
+model Transaction {
+  id            String          @id @default(uuid()) @map("_id")
+  accountId     String
+  account       Account         @relation(fields: [accountId], references: [id])
+
+  type          TransactionType
+  amount        Float
+  method        PaymentMethod?
+  reference     String?
+  isLate        Boolean         @default(false)
+  isPartial     Boolean         @default(false)
+  expectedDate  DateTime?
+  recordedById  String          // User.id of whoever initiated it (member or admin)
+  balanceAfter  Float
+  createdAt     DateTime        @default(now())
+
+  @@index([accountId])
+}
+
+model FrequencyChangeLog {
+  id         String    @id @default(uuid()) @map("_id")
+  accountId  String
+  account    Account   @relation(fields: [accountId], references: [id])
+  oldFrequency Frequency
+  newFrequency Frequency
+  reason     String
+  changedById String
+  createdAt  DateTime  @default(now())
+}
+
+model Notification {
+  id         String   @id @default(uuid()) @map("_id")
+  accountId  String?
+  account    Account? @relation(fields: [accountId], references: [id])
+  userId     String   // who receives it
+  title      String
+  message    String
+  channel    String   // IN_APP | SMS
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @map("_id")
+  actorId    String
+  actor      User     @relation("ActorLogs", fields: [actorId], references: [id])
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+}
